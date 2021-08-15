@@ -1,6 +1,8 @@
 import { Client } from "boardgame.io/client";
 import { State } from "boardgame.io";
 
+import { SocketIO } from "boardgame.io/multiplayer";
+
 import { _ClientImpl } from "boardgame.io/dist/types/src/client/client";
 import { TicTacToe, State as DefaultState } from "./Game";
 
@@ -18,25 +20,27 @@ class TicTacToeClient {
     rootElement: HTMLElement;
     boardSize: number;
 
-    constructor (rootElement: HTMLElement, config: TicTacToeClientConfigInterface = defaultConfig ) {
-
+    constructor (rootElement: HTMLElement, config: TicTacToeClientConfigInterface = defaultConfig, { playerID } = {}) {
+        this.rootElement = rootElement;        
+        
         if (!boardSizeIsValid(config.boardSize)) {
             throw new Error("Invalid board size, define square number");
         }
         this.boardSize = config.boardSize;
 
-        this.client = Client({ game: {
-            ...TicTacToe,
-            setup: () => ({
-                cells: Array(this.boardSize).fill(null)
-            }),
-        } });
-        this.client.start();
+        this.client = Client({ 
+            game: TicTacToe({ boardSize: this.boardSize }),
+            playerID,
+            multiplayer: SocketIO({
+                server: "localhost:4142"
+            })
+        });
+        this.client.subscribe(state => this.update(state));
 
-        this.rootElement = rootElement;        
         this.createBoard();
         this.attachListeners();
-        this.client.subscribe(state => this.update(state));
+
+        this.client.start();
     }
 
     createBoard () {
@@ -61,32 +65,42 @@ class TicTacToeClient {
     }
 
     attachListeners () {
+
         const handleClick = (event) => {
             const id = parseInt(event.target.dataset.id);
             this.client.moves.clickCell(id);
         };
 
         const cells = this.rootElement.querySelectorAll('.cell');
+
         cells.forEach(cell => {
             cell.addEventListener('click', handleClick);
         });
     }
 
-    update(state: State<DefaultState>) {
+    update(s: State<DefaultState>) {
+
+        if (s === null) {
+            return;
+        }
+
         const cells = this.rootElement.querySelectorAll('.cell');
 
         cells.forEach(cell => {
           const cellId = parseInt(cell.dataset.id);
-          const cellValue = state.G.cells[cellId];
+
+          const cellValue = s.G.cells[cellId];
           cell.textContent = cellValue !== null ? (cellValue == '0'? 'X': "0") : '';
         });
 
+        console.log(this.client.playerID);
+
         const messageEl = this.rootElement.querySelector('.winner');
 
-        if (state.ctx.gameover) {
+        if (s.ctx.gameover) {
           messageEl.textContent =
-            state.ctx.gameover.winner !== undefined
-              ? 'Winner: ' + state.ctx.gameover.winner
+            s.ctx.gameover.winner !== undefined
+              ? 'Winner: ' + s.ctx.gameover.winner
               : 'Draw!';
         } else {
           messageEl.textContent = '';
@@ -100,4 +114,9 @@ const boardSizeIsValid = (size: number) => {
     return size > 0 && Math.sqrt(size) % 1 === 0;
 }
 
-const app = new TicTacToeClient(document.getElementById("app"));
+let ids = 0;
+
+const app = new TicTacToeClient(document.getElementById("app"), defaultConfig, {
+    playerID: (parseInt(Math.random() * 3)).toString()
+});
+
