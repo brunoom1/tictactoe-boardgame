@@ -1,0 +1,38 @@
+$gap: 5px;
+
+#board {
+    background-color: #555;
+    display: inline-flex;
+    justify-content: space-between;
+    align-items: stretch;
+    flex-direction: column;
+
+    .row {
+        display: flex;
+        justify-content: flex-start;
+        align-items: flex-start;
+
+        margin-top: $gap;
+        &:first-child {
+            margin-top: 0px
+        }
+
+        .cell {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            background-color: #fff;
+            margin-left: $gap;
+            &:first-child {
+                margin-left: 0px;
+            }
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+        }
+    }
+}
+
+.winner {
+    font-size: 30px;
+}
